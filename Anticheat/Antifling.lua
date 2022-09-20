@@ -23,11 +23,11 @@ function AntiFling.new(Player)
 
 				Character:BreakJoints() --> Kills Player.
 
-			end;
+			end
 
-		end;
+		end
 
-	end);
+	end)
 
 	return setmetatable({}, AntiFling)
 
