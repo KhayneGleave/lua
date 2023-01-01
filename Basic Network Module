@@ -1,0 +1,145 @@
+-- Very unprotected network module but good for learning the basics from
+
+local Network = {}
+local Password = nil
+
+Network.Players = {}
+
+local ReplicatedStorage, Players, RunService, HttpService = game:GetService('ReplicatedStorage'), game:GetService('Players'), game:GetService('RunService'), game:GetService('HttpService')
+
+local NetworkFolder = ReplicatedStorage:WaitForChild('Network', 10)
+
+Network.Events, Network.Functions = NetworkFolder:WaitForChild('Events', 10), NetworkFolder:WaitForChild('Functions', 10)
+
+
+function Network:FireServer(Name, ...)
+	
+	self.Events[Name]:FireServer(Password, ...)
+	
+end
+
+function Network:InvokeServer(Name, ...)
+
+	self.Functions[Name]:InvokeServer(...)
+
+end
+
+function Network:OnClientEvent(Name, Callback)
+	
+	return self.Events[Name].OnClientEvent:Connect(Callback)
+	
+end
+
+function Network:OnClientInvoke(Name, Callback)
+
+	self.Functions[Name].OnClientInvoke = Callback
+
+end
+
+function Network:InvokeClient(Player, Name, ...)
+		
+	self.Functions[Name]:InvokeClient(Player, ...)
+	
+end
+
+function Network:FireClient(Player, Name, ...)
+
+	self.Events[Name]:FireClient(Player, ...)
+
+end
+
+function Network:FireAllClients(Name, ...)
+
+	self.Events[Name]:FireAllClients(...)
+
+end
+
+function Network:InvokeAllClients(Name, ...)
+	
+	local Players = Players:GetPlayers()
+	
+	for i = 1, #Players do 
+		
+		local Player = Players[i]
+		
+		coroutine.resume(coroutine.create(function(...)
+			
+			self.Functions[Name]:InvokeClient(Player, ...)
+			
+		end))
+		
+	end
+
+end
+
+function Network:OnServerEvent(Name, Callback, ...)
+	
+	self.Events[Name].OnServerEvent:Connect(function(Player, NetworkPassword, ...)
+		
+		local Data = self:Get(Player)
+		
+		if NetworkPassword ~= Data.NetworkPassword then 
+			
+			return
+			
+		end
+		
+		self:Set(Player)
+		Callback(Player, ...)
+		
+	end)
+	
+end
+
+function Network:OnServerInvoke(Name, Callback)
+
+	self.Events[Name].OnServerInvoke = function(...)
+		
+		Callback(...)
+		
+	end
+
+end
+
+
+if RunService:IsServer() then 
+
+	function Network:Get(Player)
+
+		return Network.Players[tostring(Player)]
+
+	end
+
+	function Network:Set(Player)
+
+		local Data = self:Get(Player)
+
+		Data.NetworkPassword = HttpService:GenerateGUID(false)
+
+		self:FireClient(Player, 'Ping', Data.NetworkPassword)
+
+	end
+	
+	Players.PlayerAdded:Connect(function(Player)
+
+		Network.Players[tostring(Player)] = {
+
+			NetworkPassword = nil
+
+		}
+
+		Network:Set(Player)
+
+	end)
+
+else 
+
+	Network:OnClientEvent('Ping', function(NetworkPassword)
+
+		Password = NetworkPassword
+
+	end)
+
+end
+
+return Network
